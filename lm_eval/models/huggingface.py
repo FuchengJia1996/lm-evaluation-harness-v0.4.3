@@ -801,6 +801,35 @@ class HFLM(TemplateLM):
                 assert self.AUTO_MODEL_CLASS == transformers.AutoModelForCausalLM
                 return self.model(inps).logits
 
+    def _model_call_v2(self, inps, use_cache=True, past_key_values=None, return_dict=False):
+        assert self.AUTO_MODEL_CLASS == transformers.AutoModelForCausalLM
+        return self.model(inps, use_cache=use_cache, past_key_values=past_key_values, return_dict=return_dict)
+
+    def _sparse_model_call(self, inps, inplens, cont_toks_list):
+        from transformers import DynamicCache
+
+        bs, seqlen = inps.size()
+        logits_list = []
+        for i in range(bs):
+            dynamic_cache = DynamicCache()
+            inplen = inplens[i]
+            contlen = len(cont_toks_list[i])
+            #print(f"i {i}, inplen {inplen}")
+            ctx_inps = inps[i, :inplen - contlen].view(1, -1)
+            os.environ["ENABLE_SPARSE_INFER"] = "0"
+            outputs = self._model_call_v2(ctx_inps, use_cache=True, past_key_values=dynamic_cache, return_dict=False)
+            ctx_logits = outputs[0]
+            past_key_values = outputs[1]
+
+            ctn_inps = inps[i, inplen - contlen:].view(1, -1)
+            os.environ["ENABLE_SPARSE_INFER"] = "1"
+            outputs = self._model_call_v2(ctn_inps, past_key_values=past_key_values, return_dict=False)
+            ctn_logits = outputs[0]
+
+            logits = torch.cat((ctx_logits, ctn_logits), dim=-2)
+            logits_list.append(logits)
+        return torch.cat(logits_list, dim=0)
+
     def _model_generate(self, context, max_length, stop, **generation_kwargs):
         # temperature = 0.0 if not set
         # if do_sample is false and temp==0.0:
@@ -1083,9 +1112,14 @@ class HFLM(TemplateLM):
                     "labels": batched_conts,
                 }
 
+            #print("batched_inps:", batched_inps)
+            #multi_logits = self._model_call(batched_inps, **call_kwargs)
+            multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
+            #print("multi_logits:", multi_logits)
             multi_logits = F.log_softmax(
-                self._model_call(batched_inps, **call_kwargs), dim=-1
+                multi_logits, dim=-1
             )  # [batch, padding_length (inp or cont), vocab]
+            #print("multi_logits:", multi_logits)
 
             for (request_str, ctx_tokens, _), logits, inplen, cont_toks in zip(
                 chunk, multi_logits, inplens, cont_toks_list
@@ -1312,9 +1346,9 @@ class HFLM(TemplateLM):
                 model_info = HfApi().model_info(repo_id=pretrained, revision=revision)
                 return model_info.sha
             except Exception as e:
-                eval_logger.warn(
-                    f"Failed to get model SHA for {pretrained} at revision {revision}. Error: {e}"
-                )
+                #eval_logger.warn(
+                #    f"Failed to get model SHA for {pretrained} at revision {revision}. Error: {e}"
+                #)
                 return ""
 
         model_info = {
