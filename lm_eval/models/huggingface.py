@@ -1112,6 +1112,7 @@ class HFLM(TemplateLM):
                     "labels": batched_conts,
                 }
 
+            #print("batched_inps_shape:", batched_inps.shape)
             #print("batched_inps:", batched_inps)
             #multi_logits = self._model_call(batched_inps, **call_kwargs)
             multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
@@ -1269,6 +1270,7 @@ class HFLM(TemplateLM):
                 max_ctx_len = self.max_length
 
             # encode, pad, and truncate contexts for this batch
+            #print("contexts:", contexts)
             context_enc, attn_masks = self.tok_batch_encode(
                 contexts,
                 left_truncate_len=max_ctx_len,
@@ -1304,6 +1306,8 @@ class HFLM(TemplateLM):
                         s = s.split(term)[0]
 
                 res.append(s)
+                #print("contexts:", contexts[0])
+                #print("s:", s)
 
                 self.cache_hook.add_partial("generate_until", (context, gen_kwargs), s)
                 pbar.update(1)

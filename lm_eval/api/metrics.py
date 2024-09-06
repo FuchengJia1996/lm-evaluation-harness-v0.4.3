@@ -215,7 +215,10 @@ def exact_match_hf_evaluate(
         predictions = np.char.translate(predictions, table=repl_table)
         references = np.char.translate(references, table=repl_table)
 
+    #print("predictions:", predictions)
+    #print("references:", references)
     score_list = predictions == references
+    #print("score:", np.mean(score_list))
 
     return {"exact_match": np.mean(score_list)}
 

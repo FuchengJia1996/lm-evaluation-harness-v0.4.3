@@ -1,21 +1,20 @@
-group:
-  - super-glue-t5-prompt
-task: super_glue-boolq-t5-prompt
-dataset_path: super_glue
-dataset_name: boolq
+task: piqa-prompt
+dataset_path: piqa
+dataset_name: null
+output_type: generate_until
 training_split: train
 validation_split: validation
-output_type: generate_until
-#doc_to_text: "boolq passage: {{passage}} question: {{question}}"
-doc_to_text: "{{passage}}\nQuestion: {{question}}?\nAnswer:"
+test_split: null
+doc_to_text: "Question: {{goal}}\nA. {{sol1}}\nB. {{sol2}}\nAnswer:"
 doc_to_target: label
-#doc_to_choice: ['False', 'True']
-doc_to_choice: ['no', 'yes']
+doc_to_choice: ["A", "B"]
+should_decontaminate: true
+doc_to_decontamination_query: goal
 filter_list:
   - name: "strict-match"
     filter:
       - function: "regex"
-        regex_pattern: "yes|Yes|no|No"
+        regex_pattern: "A|B"
       - function: "take_first"
 generation_kwargs:
   max_gen_toks: 16
@@ -30,4 +29,6 @@ metric_list:
     ignore_case: true
     ignore_punctuation: true
 metadata:
-  version: 0.0
+  version: 1.0
+dataset_kwargs:
+  trust_remote_code: true

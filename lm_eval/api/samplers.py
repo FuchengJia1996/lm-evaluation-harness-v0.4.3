@@ -44,6 +44,7 @@ class ContextSampler:
 
         labeled_examples = ""
         for doc in selected_docs:
+            #print("doc:", doc)
             doc_content = self.doc_to_text(doc)
             doc_target = self.doc_to_target(doc)
             labeled_examples += (
