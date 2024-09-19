@@ -816,18 +816,25 @@ class HFLM(TemplateLM):
             contlen = len(cont_toks_list[i])
             #print(f"i {i}, inplen {inplen}")
             ctx_inps = inps[i, :inplen - contlen].view(1, -1)
-            os.environ["ENABLE_SPARSE_INFER"] = "0"
-            outputs = self._model_call_v2(ctx_inps, use_cache=True, past_key_values=dynamic_cache, return_dict=False)
-            ctx_logits = outputs[0]
-            past_key_values = outputs[1]
+            #print(f"ctx_inps_shape {ctx_inps.shape}")
+            if ctx_inps.shape[-1] == 0:
+                ctn_inps = inps[i, inplen - contlen:].view(1, -1)
+                logits = self._model_call_v2(ctn_inps, return_dict=False)[0]
+                logits_list.append(logits)
+            else:
+                os.environ["ENABLE_SPARSE_INFER"] = "0"
+                outputs = self._model_call_v2(ctx_inps, use_cache=True, past_key_values=dynamic_cache, return_dict=False)
+                ctx_logits = outputs[0]
+                past_key_values = outputs[1]
 
-            ctn_inps = inps[i, inplen - contlen:].view(1, -1)
-            os.environ["ENABLE_SPARSE_INFER"] = "1"
-            outputs = self._model_call_v2(ctn_inps, past_key_values=past_key_values, return_dict=False)
-            ctn_logits = outputs[0]
+                ctn_inps = inps[i, inplen - contlen:].view(1, -1)
+                #print(f"ctn_inps_shape {ctn_inps.shape}")
+                os.environ["ENABLE_SPARSE_INFER"] = "1"
+                outputs = self._model_call_v2(ctn_inps, past_key_values=past_key_values, return_dict=False)
+                ctn_logits = outputs[0]
 
-            logits = torch.cat((ctx_logits, ctn_logits), dim=-2)
-            logits_list.append(logits)
+                logits = torch.cat((ctx_logits, ctn_logits), dim=-2)
+                logits_list.append(logits)
         return torch.cat(logits_list, dim=0)
 
     def _model_generate(self, context, max_length, stop, **generation_kwargs):
