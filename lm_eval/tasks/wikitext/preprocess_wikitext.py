@@ -38,10 +38,15 @@ def wikitext_detokenizer(doc):
 
 def process_results(doc, results):
     (loglikelihood,) = results
+    nctx = loglikelihood[1]
+    loglikelihood = loglikelihood[0]
+    #print(f"loglikelihood {loglikelihood}")
+    #print(f"nctx {nctx}")
     # IMPORTANT: wikitext counts number of words in *original doc before detokenization*
     _words = len(re.split(r"\s+", doc["page"]))
     _bytes = len(doc["page"].encode("utf-8"))
     return {
+        "perplexity": (loglikelihood, nctx),
         "word_perplexity": (loglikelihood, _words),
         "byte_perplexity": (loglikelihood, _bytes),
         "bits_per_byte": (loglikelihood, _bytes),

@@ -933,14 +933,17 @@ class HFLM(TemplateLM):
                 override_bs=adaptive_batch_size,
             )
 
+            string_nctn = [x[2] for x in string_nll]
             if (self.world_size > 1) and (pad_amnt > 0):
                 string_nll = [x[0] for x in string_nll[:-pad_amnt]]
             else:
                 # discard is_greedy
                 string_nll = [x[0] for x in string_nll]
 
+            string_nctn = sum(string_nctn)
             string_nll = sum(string_nll)
-            loglikelihoods.append(string_nll)
+            #loglikelihoods.append(string_nll)
+            loglikelihoods.append((string_nll, string_nctn))
 
         return loglikelihoods
 
@@ -1041,6 +1044,9 @@ class HFLM(TemplateLM):
             for _, context_enc, continuation_enc in chunk:
                 # sanity check
                 assert len(context_enc) > 0
+                # NOTE(fucheng): a trivial fix here for prosparse.
+                if context_enc[0] != 1:
+                    context_enc = [1] + context_enc
                 assert len(continuation_enc) > 0
                 assert len(continuation_enc) <= self.max_length
 
@@ -1121,8 +1127,8 @@ class HFLM(TemplateLM):
 
             #print("batched_inps_shape:", batched_inps.shape)
             #print("batched_inps:", batched_inps)
-            #multi_logits = self._model_call(batched_inps, **call_kwargs)
-            multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
+            multi_logits = self._model_call(batched_inps, **call_kwargs)
+            #multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
             #print("multi_logits:", multi_logits)
             multi_logits = F.log_softmax(
                 multi_logits, dim=-1
@@ -1172,7 +1178,7 @@ class HFLM(TemplateLM):
                     )  # [1, seq]
 
                     # Answer: (log prob, is-exact-match)
-                    answer = (float(logits.sum()), bool(max_equal))
+                    answer = (float(logits.sum()), bool(max_equal), contlen)
 
                     res.append(answer)
 

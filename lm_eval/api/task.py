@@ -1335,9 +1335,18 @@ class ConfigurableTask(Task):
             }
         elif self.OUTPUT_TYPE == "loglikelihood_rolling":
             (loglikelihood,) = results
+            nctx = loglikelihood[1]
+            loglikelihood = loglikelihood[0]
+            print(f"loglikelihood {loglikelihood}")
+            print(f"nctx {nctx}")
             _words = self.count_words(self.doc_to_target(doc))
             _bytes = self.count_bytes(self.doc_to_target(doc))
             return {
+                **(
+                    {"perplexity": (loglikelihood, nctx)}
+                    if "perplexity" in use_metric
+                    else {}
+                ),
                 **(
                     {"word_perplexity": (loglikelihood, _words)}
                     if "word_perplexity" in use_metric
@@ -1628,9 +1637,14 @@ class PerplexityTask(Task):
 
     def process_results(self, doc: dict, results: Tuple[float]) -> dict:
         (loglikelihood,) = results
+        nctx = loglikelihood[1]
+        loglikelihood = loglikelihood[0]
+        print(f"loglikelihood {loglikelihood}")
+        print(f"nctx {nctx}")
         words = self.count_words(self.doc_to_target(doc))
         bytes_ = self.count_bytes(self.doc_to_target(doc))
         return {
+            "perplexity": (loglikelihood, nctx),
             "word_perplexity": (loglikelihood, words),
             "byte_perplexity": (loglikelihood, bytes_),
             "bits_per_byte": (loglikelihood, bytes_),
