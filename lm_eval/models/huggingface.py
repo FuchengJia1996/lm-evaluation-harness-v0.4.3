@@ -801,9 +801,10 @@ class HFLM(TemplateLM):
                 assert self.AUTO_MODEL_CLASS == transformers.AutoModelForCausalLM
                 return self.model(inps).logits
 
-    def _model_call_v2(self, inps, use_cache=True, past_key_values=None, return_dict=False):
-        assert self.AUTO_MODEL_CLASS == transformers.AutoModelForCausalLM
-        return self.model(inps, use_cache=use_cache, past_key_values=past_key_values, return_dict=return_dict)
+    def _model_call_v2(self, inps, use_cache=False, past_key_values=None, return_dict=False):
+        with torch.no_grad():
+            assert self.AUTO_MODEL_CLASS == transformers.AutoModelForCausalLM
+            return self.model(inps, use_cache=use_cache, past_key_values=past_key_values, return_dict=return_dict)
 
     def _sparse_model_call(self, inps, inplens, cont_toks_list):
         from transformers import DynamicCache
@@ -811,18 +812,26 @@ class HFLM(TemplateLM):
         bs, seqlen = inps.size()
         logits_list = []
         for i in range(bs):
-            dynamic_cache = DynamicCache()
             inplen = inplens[i]
-            contlen = len(cont_toks_list[i])
             #print(f"i {i}, inplen {inplen}")
+
+            if False:
+                os.environ["ENABLE_SPARSE_INFER"] = "0"
+                logits = self._model_call_v2(inps[i, :].view(1, -1), use_cache=False, return_dict=False)[0]
+                logits_list.append(logits)
+                continue
+
+            contlen = len(cont_toks_list[i])
             ctx_inps = inps[i, :inplen - contlen].view(1, -1)
             #print(f"ctx_inps_shape {ctx_inps.shape}")
             if ctx_inps.shape[-1] == 0:
                 ctn_inps = inps[i, inplen - contlen:].view(1, -1)
+                #print(f"ctn_inps_shape {ctn_inps.shape}")
                 os.environ["ENABLE_SPARSE_INFER"] = "1"
-                logits = self._model_call_v2(ctn_inps, return_dict=False)[0]
+                logits = self._model_call_v2(ctn_inps, use_cache=False, return_dict=False)[0]
                 logits_list.append(logits)
             else:
+                dynamic_cache = DynamicCache()
                 os.environ["ENABLE_SPARSE_INFER"] = "0"
                 outputs = self._model_call_v2(ctx_inps, use_cache=True, past_key_values=dynamic_cache, return_dict=False)
                 ctx_logits = outputs[0]
@@ -836,6 +845,9 @@ class HFLM(TemplateLM):
 
                 logits = torch.cat((ctx_logits, ctn_logits), dim=-2)
                 logits_list.append(logits)
+            #print(torch.cuda.memory_summary())
+            #print(torch.cuda.mem_get_info())
+            #torch.cuda.empty_cache()
         return torch.cat(logits_list, dim=0)
 
     def _model_generate(self, context, max_length, stop, **generation_kwargs):
