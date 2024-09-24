@@ -819,6 +819,7 @@ class HFLM(TemplateLM):
             #print(f"ctx_inps_shape {ctx_inps.shape}")
             if ctx_inps.shape[-1] == 0:
                 ctn_inps = inps[i, inplen - contlen:].view(1, -1)
+                os.environ["ENABLE_SPARSE_INFER"] = "1"
                 logits = self._model_call_v2(ctn_inps, return_dict=False)[0]
                 logits_list.append(logits)
             else:
@@ -1127,8 +1128,8 @@ class HFLM(TemplateLM):
 
             #print("batched_inps_shape:", batched_inps.shape)
             #print("batched_inps:", batched_inps)
-            multi_logits = self._model_call(batched_inps, **call_kwargs)
-            #multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
+            #multi_logits = self._model_call(batched_inps, **call_kwargs)
+            multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
             #print("multi_logits:", multi_logits)
             multi_logits = F.log_softmax(
                 multi_logits, dim=-1
