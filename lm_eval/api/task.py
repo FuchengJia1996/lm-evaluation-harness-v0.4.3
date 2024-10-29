@@ -1364,7 +1364,8 @@ class ConfigurableTask(Task):
                 ),
             }
         elif self.OUTPUT_TYPE == "multiple_choice":
-            lls, is_greedy = zip(*results)
+            lls, is_greedy = zip(*[(ll, is_greedy) for ll, is_greedy, _ in results])
+
 
             # retrieve choices in List[str] form, to compute choice lengths, etc.
             choices = self.doc_to_choice(doc)
