@@ -823,7 +823,7 @@ class HFLM(TemplateLM):
 
             contlen = len(cont_toks_list[i])
             ctx_inps = inps[i, :inplen - contlen].view(1, -1)
-            #print(f"ctx_inps_shape {ctx_inps.shape}")
+            print(f"ctx_inps_shape {ctx_inps.shape}")
             if ctx_inps.shape[-1] == 0:
                 ctn_inps = inps[i, inplen - contlen:].view(1, -1)
                 #print(f"ctn_inps_shape {ctn_inps.shape}")
@@ -838,9 +838,9 @@ class HFLM(TemplateLM):
                 past_key_values = outputs[1]
 
                 ctn_inps = inps[i, inplen - contlen:].view(1, -1)
-                #print(f"ctn_inps_shape {ctn_inps.shape}")
+                print(f"ctn_inps_shape {ctn_inps.shape}")
                 os.environ["ENABLE_SPARSE_INFER"] = "1"
-                outputs = self._model_call_v2(ctn_inps, past_key_values=past_key_values, return_dict=False)
+                outputs = self._model_call_v2(ctn_inps, use_cache=True, past_key_values=past_key_values, return_dict=False)
                 ctn_logits = outputs[0]
 
                 logits = torch.cat((ctx_logits, ctn_logits), dim=-2)
@@ -1040,7 +1040,11 @@ class HFLM(TemplateLM):
             disable=(disable_tqdm or (self.rank != 0)),
             desc="Running loglikelihood requests",
         )
+        chunk_idx = 0
+        sample_idx = 0
         for chunk in chunks:
+            print(f"chunk_idx {chunk_idx}")
+            chunk_idx += 1
             inps = []
             cont_toks_list = []
             inplens = []
@@ -1138,7 +1142,11 @@ class HFLM(TemplateLM):
                     "labels": batched_conts,
                 }
 
-            #print("batched_inps_shape:", batched_inps.shape)
+            print(f"sample_idx {sample_idx}")
+            os.environ["TENSOR_SAMPLE_ID"] = str(sample_idx)
+            sample_idx += 1
+
+            print("batched_inps_shape:", batched_inps.shape)
             #print("batched_inps:", batched_inps)
             #multi_logits = self._model_call(batched_inps, **call_kwargs)
             multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
@@ -1256,6 +1264,7 @@ class HFLM(TemplateLM):
         )
         chunks = re_ords.get_batched(n=batch_size, batch_fn=batch_fn)
         for chunk in chunks:
+            chunk_idx += 1
             contexts, all_gen_kwargs = zip(*chunk)
             # we assume all gen kwargs in the batch are the same
             # this is safe to assume because the `grouper` object ensures it.
