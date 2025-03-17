@@ -1040,11 +1040,8 @@ class HFLM(TemplateLM):
             disable=(disable_tqdm or (self.rank != 0)),
             desc="Running loglikelihood requests",
         )
-        chunk_idx = 0
         sample_idx = 0
         for chunk in chunks:
-            print(f"chunk_idx {chunk_idx}")
-            chunk_idx += 1
             inps = []
             cont_toks_list = []
             inplens = []
@@ -1264,7 +1261,6 @@ class HFLM(TemplateLM):
         )
         chunks = re_ords.get_batched(n=batch_size, batch_fn=batch_fn)
         for chunk in chunks:
-            chunk_idx += 1
             contexts, all_gen_kwargs = zip(*chunk)
             # we assume all gen kwargs in the batch are the same
             # this is safe to assume because the `grouper` object ensures it.
