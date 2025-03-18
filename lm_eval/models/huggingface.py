@@ -1142,7 +1142,7 @@ class HFLM(TemplateLM):
             os.environ["TENSOR_SAMPLE_ID"] = str(sample_idx)
             sample_idx += 1
 
-            print("batched_inps_shape:", batched_inps.shape)
+            # print("batched_inps_shape:", batched_inps.shape)
             #print("batched_inps:", batched_inps)
             multi_logits = self._model_call(batched_inps, **call_kwargs)
             # multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
