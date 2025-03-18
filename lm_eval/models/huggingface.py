@@ -823,7 +823,7 @@ class HFLM(TemplateLM):
 
             contlen = len(cont_toks_list[i])
             ctx_inps = inps[i, :inplen - contlen].view(1, -1)
-            print(f"ctx_inps_shape {ctx_inps.shape}")
+            # print(f"ctx_inps_shape {ctx_inps.shape}")
             if ctx_inps.shape[-1] == 0:
                 ctn_inps = inps[i, inplen - contlen:].view(1, -1)
                 #print(f"ctn_inps_shape {ctn_inps.shape}")
@@ -838,7 +838,6 @@ class HFLM(TemplateLM):
                 past_key_values = outputs[1]
 
                 ctn_inps = inps[i, inplen - contlen:].view(1, -1)
-                print(f"ctn_inps_shape {ctn_inps.shape}")
                 os.environ["ENABLE_SPARSE_INFER"] = "1"
                 outputs = self._model_call_v2(ctn_inps, use_cache=True, past_key_values=past_key_values, return_dict=False)
                 ctn_logits = outputs[0]
@@ -1139,14 +1138,14 @@ class HFLM(TemplateLM):
                     "labels": batched_conts,
                 }
 
-            print(f"sample_idx {sample_idx}")
+            # print(f"sample_idx {sample_idx}")
             os.environ["TENSOR_SAMPLE_ID"] = str(sample_idx)
             sample_idx += 1
 
             print("batched_inps_shape:", batched_inps.shape)
             #print("batched_inps:", batched_inps)
-            #multi_logits = self._model_call(batched_inps, **call_kwargs)
-            multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
+            multi_logits = self._model_call(batched_inps, **call_kwargs)
+            # multi_logits = self._sparse_model_call(batched_inps, inplens, cont_toks_list)
             #print("multi_logits:", multi_logits)
             multi_logits = F.log_softmax(
                 multi_logits, dim=-1
